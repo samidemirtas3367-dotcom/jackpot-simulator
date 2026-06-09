@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Jackpot Simulator: HAKARİ DOMAIN EDITION</title>
+    <style>
+        /* =========================================
+           GENEL AYARLAR VE ANİMASYONLAR
+           ========================================= */
+        body {
+            margin: 0; padding: 0; background-color: #050505; color: white;
+            font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none;
+            transition: background-color 0.5s;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(5px, 5px) rotate(-2deg); }
+            50% { transform: translate(-5px, -5px) rotate(2deg); }
+            100% { transform: translate(5px, -5px) rotate(-1deg); }
+        }
+        @keyframes hakariShake {
+            0% { transform: translate(2px, 2px) rotate(0deg); }
+            50% { transform: translate(-2px, -2px) rotate(1deg); }
+            100% { transform: translate(2px, -2px) rotate(-1deg); }
+        }
+        @keyframes neonPulse {
+            from { text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff; }
+            to { text-shadow: 0 0 50px #00ffff, 0 0 100px #00ffff; }
+        }
+        @keyframes whiteGlowPulse {
+            from { text-shadow: 0 0 20px #fff, 0 0 40px #fff; }
+            to { text-shadow: 0 0 60px #fff, 0 0 100px #fff, 0 0 150px #ffcc00; }
+        }
+
+        /* =========================================
+           MENÜ VE BİTİŞ EKRANLARI
+           ========================================= */
+        .screen {
+            display: none; width: 100vw; height: 100vh; flex-direction: column; 
+            align-items: center; justify-content: center; position: absolute; top: 0; left: 0; z-index: 100;
+        }
+        #main-menu { display: flex; background: radial-gradient(circle, #1a0b2e 0%, #000 100%); }
+        #end-screen { background: rgba(0, 0, 0, 0.9); z-index: 999; }
+        #game-screen { display: none; width: 100vw; height: 100vh; position: relative; perspective: 1200px; }
+
+        h1 { font-size: 4rem; text-shadow: 0 0 20px #66fcf1; text-align: center; margin-bottom: 30px; }
+        .end-text { font-size: 5rem; font-weight: 900; text-transform: uppercase; text-shadow: 0 0 30px #ff0055; text-align: center; }
+
+        .btn {
+            background: transparent; color: #fff; border: 2px solid #66fcf1; padding: 15px 40px; 
+            font-size: 1.5rem; margin: 15px; cursor: pointer; transition: 0.3s; 
+            box-shadow: 0 0 15px #66fcf1 inset; border-radius: 5px; width: 300px; text-transform: uppercase;
+        }
+        .btn:hover { background: #66fcf1; color: #000; box-shadow: 0 0 40px #66fcf1; transform: scale(1.1); }
+
+        /* =========================================
+           ÜST BİLGİ BARI (HUD)
+           ========================================= */
+        #top-bar {
+            position: absolute; top: 0; left: 0; width: 100%; height: 60px;
+            background: rgba(10, 10, 10, 0.9); border-bottom: 2px solid #ffeb3b;
+            display: flex; justify-content: space-around; align-items: center;
+            box-shadow: 0 0 20px rgba(255, 235, 59, 0.3); z-index: 50; font-weight: bold; font-size: 1.2rem;
+            transition: 0.5s;
+        }
+        .stat-box { color: #fff; text-shadow: 0 0 10px #00ffff; }
+        .time-box { color: #ff0055; font-size: 1.8rem; text-shadow: 0 0 15px #ff0055; animation: neonPulse 1s infinite alternate; }
+
+        /* =========================================
+           3D MASA ALANI (PARALLAX İÇİN)
+           ========================================= */
+        .table-3d-wrapper {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            transform-style: preserve-3d; transition: transform 0.1s ease-out;
+            background: radial-gradient(circle, #152515 0%, #020502 100%);
+        }
+
+        .table-surface {
+            width: 80%; height: 80%; background: #0d1a0d; border-radius: 500px;
+            border: 10px solid #2a1b10; box-shadow: inset 0 0 100px #000, 0 20px 50px rgba(0,0,0,0.8);
+            position: relative; display: flex; align-items: center; justify-content: center;
+            transform: rotateX(20deg); transform-style: preserve-3d; transition: 0.5s;
+        }
+
+        /* YERDEKİ KART VE DESTE */
+        .center-pile {
+            width: 110px; height: 160px; background: #222; border: 3px dashed #66fcf1; 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; font-weight: bold; text-align: center; border-radius: 10px;
+            box-shadow: 0 0 30px rgba(102, 252, 241, 0.3); transform: translateZ(20px); transition: 0.2s;
+        }
+
+        .draw-deck {
+            position: absolute; right: 20%; top: 50%; transform: translateY(-50%) translateZ(20px);
+            width: 110px; height: 160px; background: repeating-linear-gradient(45deg, #444, #444 10px, #222 10px, #222 20px);
+            border: 3px solid #ffcc00; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: bold; color: #ffcc00; cursor: pointer; box-shadow: -5px 5px 15px rgba(0,0,0,0.8);
+            text-align: center; transition: 0.2s;
+        }
+        .draw-deck:hover { transform: translateY(-50%) translateZ(30px) scale(1.05); box-shadow: -10px 10px 25px #ffcc00; }
+
+        /* OYUNCU BÖLGELERİ */
+        .player-zone { position: absolute; display: flex; flex-direction: column; align-items: center; transform: translateZ(30px); }
+        .pos-bottom { bottom: -30px; left: 50%; transform: translateX(-50%) translateZ(50px) rotateX(-20deg); }
+        .pos-top { top: 20px; left: 50%; transform: translateX(-50%) translateZ(30px); }
+        .pos-left { top: 50%; left: 20px; transform: translateY(-50%) translateZ(30px) rotate(90deg); }
+        .pos-right { top: 50%; right: 20px; transform: translateY(-50%) translateZ(30px) rotate(-90deg); }
+
+        /* RAKİP KARTLARININ ARKASI */
+        .ai-hand-visual { display: flex; justify-content: center; margin-top: 10px; }
+        .ai-card-back {
+            width: 40px; height: 60px; border-radius: 4px; border: 1px solid #fff;
+            background: repeating-linear-gradient(135deg, #8b0000, #8b0000 5px, #3e0000 5px, #3e0000 10px);
+            margin-left: -20px; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); transition: 0.3s;
+        }
+        .ai-card-back:first-child { margin-left: 0; }
+        
+        .ai-avatar {
+            width: 60px; height: 60px; background: #111; border-radius: 50%;
+            border: 3px solid #45a29e; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; box-shadow: 0 0 15px #45a29e; color: #fff; transition: 0.3s;
+        }
+
+        /* SENİN KARTLARIN */
+        .player-hand { display: flex; gap: 10px; }
+        .card {
+            width: 100px; height: 150px; background: linear-gradient(135deg, #2a2a2a, #111);
+            border: 2px solid #555; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: bold; text-align: center; transition: 0.2s; position: relative;
+            box-shadow: 0 -5px 10px rgba(0,0,0,0.5);
+        }
+        .card.active { border-color: #ffeb3b; box-shadow: 0 0 25px #ffeb3b; transform: translateY(-20px) scale(1.1); z-index: 10; }
+
+        /* UNO (JACKPOT DE) BUTONU */
+        #uno-btn {
+            position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%);
+            background: #ff0055; color: white; border: 2px solid #fff; padding: 10px 30px;
+            font-size: 1.5rem; font-weight: bold; border-radius: 30px; cursor: pointer; display: none;
+            box-shadow: 0 0 20px #ff0055; z-index: 60; transition: 0.2s;
+        }
+        #uno-btn:hover { transform: translateX(-50%) scale(1.2); }
+        #uno-btn.clicked { background: #00ffcc; box-shadow: 0 0 20px #00ffcc; pointer-events: none; }
+
+        /* JACKPOT MAKİNESİ (SAĞ PANEL) */
+        .jackpot-side {
+            position: absolute; right: 0; top: 0; width: 250px; height: 100%;
+            background: rgba(10,10,10,0.9); border-left: 3px solid #ffcc00;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 40; box-shadow: -10px 0 30px rgba(0,0,0,0.8); transition: 0.5s;
+        }
+        .slots { display: flex; gap: 5px; background: #000; padding: 10px; border: 3px solid #555; border-radius: 10px; margin-bottom: 20px;}
+        .slot { width: 50px; height: 70px; background: #fff; color: #000; font-size: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 5px; }
+        .spin-btn { padding: 15px; background: #ff9800; border: none; font-weight: bold; cursor: pointer; width: 80%; border-radius: 10px; font-size: 1.2rem; transition: 0.2s; }
+
+        /* =========================================
+           DOMAIN EXPANSION EFEKTLERİ (YENİ EKLENENLER)
+           ========================================= */
+        
+        /* Bembeyaz Flaş Ekranı */
+        #white-flash {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: white; z-index: 2000; opacity: 0; pointer-events: none;
+            transition: opacity 0.5s ease-out;
+        }
+
+        /* Tepeden inen Hakari Yazısı */
+        #hakari-banner {
+            position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
+            font-size: 4rem; color: #fff; text-align: center; width: 100%;
+            font-weight: 900; letter-spacing: 10px; z-index: 1999;
+            opacity: 0; pointer-events: none; transition: 0.5s;
+            animation: whiteGlowPulse 0.5s infinite alternate;
+        }
+
+        /* Sağ ve Sol Beyaz Geçiş Efektleri (Auralar) */
+        .domain-aura {
+            position: fixed; top: 0; width: 150px; height: 100vh;
+            background: linear-gradient(90deg, rgba(255,255,255,0.8) 0%, transparent 100%);
+            z-index: 30; opacity: 0; transition: 1s; pointer-events: none;
+        }
+        #aura-left { left: 0; }
+        #aura-right { right: 0; transform: scaleX(-1); }
+
+        /* HAKARİ MODU AKTİF OLDUĞUNDA MASANIN DEĞİŞİMİ */
+        body.hakari-active { background-color: #ddd; animation: hakariShake 0.1s infinite; }
+        body.hakari-active .table-3d-wrapper { background: radial-gradient(circle, #fff 0%, #ccc 100%); }
+        body.hakari-active .table-surface { background: #eee; border-color: #fff; box-shadow: 0 0 100px #fff; }
+        body.hakari-active #top-bar { background: rgba(255,255,255,0.9); border-color: #000; color: #000; }
+        body.hakari-active .stat-box { color: #000; text-shadow: none; }
+        body.hakari-active .jackpot-side { background: rgba(255,255,255,0.8); border-left-color: #fff; box-shadow: -10px 0 50px #fff; }
+        body.hakari-active #turn-indicator { color: #000 !important; font-size: 1.5rem; text-shadow: 0 0 10px #ff00ff; }
+
+    </style>
+</head>
+<body>
+
+    <!-- YENİ: DOMAIN EXPANSION GÖRSELLERİ -->
+    <div id="white-flash"></div>
+    <div id="hakari-banner">HAKARİ JUST HIT<br>THE JACKPOT!</div>
+    <div class="domain-aura" id="aura-left"></div>
+    <div class="domain-aura" id="aura-right"></div>
+
+    <!-- ÜST BİLGİ BARI -->
+    <div id="top-bar">
+        <div class="stat-box" id="hud-deck">Deste: 54</div>
+        <div class="stat-box" id="hud-ai1">Sol AI: 7</div>
+        <div class="time-box" id="hud-time">02:00</div>
+        <div class="stat-box" id="hud-ai2">Karşı AI: 7</div>
+        <div class="stat-box" id="hud-ai3">Sağ AI: 7</div>
+    </div>
+
+    <!-- ANA MENÜ -->
+    <div id="main-menu" class="screen">
+        <h1>JACKPOT SIMULATOR<br><span style="font-size:2rem; color:#ff0055;">3D MASA MODU</span></h1>
+        <button class="btn" onclick="startGame()">Oyuna Başla</button>
+    </div>
+
+    <!-- OYUN ALANI -->
+    <div id="game-screen">
+        <div class="table-3d-wrapper" id="scene">
+            <div class="table-surface">
+                
+                <!-- YERDEKİ KART -->
+                <div class="center-pile" id="center-card">Başlangıç</div>
+
+                <!-- ÇEKİLECEK DESTE -->
+                <div class="draw-deck" onclick="drawFromDeck()">DESTE<br>ÇEK</div>
+
+                <!-- SOL AI -->
+                <div class="player-zone pos-left">
+                    <div class="ai-avatar" id="avatar-1">SOL</div>
+                    <div class="ai-hand-visual" id="hand-1"></div>
+                </div>
+
+                <!-- KARŞI AI -->
+                <div class="player-zone pos-top">
+                    <div class="ai-avatar" id="avatar-2">KARŞI</div>
+                    <div class="ai-hand-visual" id="hand-2"></div>
+                </div>
+
+                <!-- SAĞ AI -->
+                <div class="player-zone pos-right">
+                    <div class="ai-avatar" id="avatar-3">SAĞ</div>
+                    <div class="ai-hand-visual" id="hand-3"></div>
+                </div>
+
+                <!-- SEN -->
+                <div class="player-zone pos-bottom">
+                    <div class="player-hand" id="player-hand"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- JACKPOT DE BUTONU -->
+        <button id="uno-btn" onclick="sayJackpot()">JACKPOT DE!</button>
+
+        <!-- JACKPOT MAKİNESİ (HUD GİBİ SAĞDA) -->
+        <div class="jackpot-side">
+            <h2 style="color:#ffcc00; text-align:center; text-shadow:0 0 10px #ffcc00;">SLOT<br>BONUS</h2>
+            <div class="slots">
+                <div class="slot" id="slot1">🍒</div><div class="slot" id="slot2">🔔</div><div class="slot" id="slot3">🍉</div>
+            </div>
+            <button class="spin-btn" id="spinBtn" onclick="spinJackpot()">Kolu Çek</button>
+            <div style="color:#fff; margin-top:20px; font-weight:bold; text-align:center;" id="turn-indicator">Sıra: SENDE</div>
+        </div>
+    </div>
+
+    <!-- OYUN BİTİŞ EKRANI -->
+    <div id="end-screen" class="screen">
+        <div class="end-text" id="end-message"></div>
+        <button class="btn" style="margin-top: 50px;" onclick="location.reload()">Tekrar Oyna</button>
+    </div>
+
+    <script>
+        // OYUN DURUMU
+        let hand = ['Krmz 5', 'Mavi 2', '+2 Kart', 'Yeşil 7', 'Sarı 9', 'JACKPOT'];
+        let aiCardCounts = [7, 7, 7];
+        let deckCount = 54;
+        let selectedIndex = 0;
+        let currentTurn = 0; // 0: Sen, 1: Sol, 2: Karşı, 3: Sağ
+        let isSpinning = false;
+        
+        // HAKARİ VE UNO MEKANİĞİ
+        let jackpotSaid = false;
+        let hakariMode = false; // YENİ: Domain Expansion bayrağı
+
+        // SÜRE MEKANİĞİ
+        let timeLeft = 120; // 2 dakika
+        let timerInterval;
+
+        /* =========================================
+           FARE İLE ETRAFA BAKINMA (PARALLAX MASA)
+           ========================================= */
+        document.addEventListener('mousemove', (e) => {
+            if (document.getElementById('game-screen').style.display !== 'block') return;
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 40; 
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
+            const scene = document.getElementById('scene');
+            scene.style.transform = `rotateY(${xAxis}deg) rotateX(${-yAxis}deg)`;
+        });
+
+        /* =========================================
+           OYUN BAŞLATMA
+           ========================================= */
+        function startGame() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            
+            renderHand();
+            renderAiHands();
+            updateHUD();
+
+            timerInterval = setInterval(() => {
+                if(hakariMode) return; // Hakari modunda zaman durur!
+                
+                timeLeft--;
+                let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                let s = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById('hud-time').innerText = `${m}:${s}`;
+
+                if(timeLeft <= 0) {
+                    gameOver("SÜRE BİTTİ KAZANAN YOK<br>ZAAAAA XD");
+                }
+            }, 1000);
+        }
+
+        /* =========================================
+           KART ÇİZİMLERİ (SEN VE YAPAY ZEKA)
+           ========================================= */
+        function renderHand() {
+            const handEl = document.getElementById('player-hand');
+            handEl.innerHTML = '';
+            
+            hand.forEach((card, i) => {
+                const div = document.createElement('div');
+                div.className = 'card' + (i === selectedIndex && currentTurn === 0 ? ' active' : '');
+                
+                if(card.includes('Krmz')) div.style.color = '#ff4d4d';
+                else if(card.includes('Mavi')) div.style.color = '#4da6ff';
+                else if(card.includes('Yeşil')) div.style.color = '#4dff4d';
+                else if(card.includes('Sarı')) div.style.color = '#ffff4d';
+                else div.style.color = '#ff00ff';
+
+                div.innerHTML = card.replace(' ', '<br>');
+                handEl.appendChild(div);
+            });
+
+            // UNO BUTONU KONTROLÜ (Hakari Modundaysa iptal et)
+            const unoBtn = document.getElementById('uno-btn');
+            if(hand.length === 2 && !hakariMode) {
+                unoBtn.style.display = 'block';
+                unoBtn.classList.remove('clicked');
+                unoBtn.innerText = "JACKPOT DE!";
+                jackpotSaid = false;
+            } else if(hand.length !== 1 || hakariMode) {
+                unoBtn.style.display = 'none';
+                jackpotSaid = false;
+            }
+
+            updateHUD();
+        }
+
+        function renderAiHands() {
+            for(let i=1; i<=3; i++) {
+                const aiHandVisual = document.getElementById(`hand-${i}`);
+                aiHandVisual.innerHTML = '';
+                for(let c=0; c < aiCardCounts[i-1]; c++) {
+                    const back = document.createElement('div');
+                    back.className = 'ai-card-back';
+                    aiHandVisual.appendChild(back);
+                }
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-deck').innerText = `Deste: ${deckCount}`;
+            document.getElementById('hud-ai1').innerText = `Sol: ${aiCardCounts[0]}`;
+            document.getElementById('hud-ai2').innerText = `Karşı: ${aiCardCounts[1]}`;
+            document.getElementById('hud-ai3').innerText = `Sağ: ${aiCardCounts[2]}`;
+        }
+
+        /* =========================================
+           OYUNCU KONTROLLERİ VE HAMLELER
+           ========================================= */
+        document.addEventListener('keydown', (e) => {
+            if (currentTurn !== 0 || isSpinning) return;
+
+            if (e.key === 'a' || e.key === 'A') { if (selectedIndex > 0) selectedIndex--; renderHand(); }
+            if (e.key === 'd' || e.key === 'D') { if (selectedIndex < hand.length - 1) selectedIndex++; renderHand(); }
+            if (e.key === 'w' || e.key === 'W') { playCard(); }
+        });
+
+        function playCard() {
+            if(hand.length === 0) return;
+
+            // Eğer Hakari modunda değilsek UNO kuralı geçerli
+            if(hand.length === 2 && !jackpotSaid && !hakariMode) {
+                gameOver("BUTONA BASMADIN!<br>KAYBETTİN!");
+                return;
+            }
+
+            let played = hand.splice(selectedIndex, 1)[0];
+            
+            let centerCard = document.getElementById('center-card');
+            centerCard.innerHTML = played.replace(' ', '<br>');
+            
+            // Kart atınca ortadaki karta ufak bir zıplama efekti
+            centerCard.style.transform = "translateZ(50px) scale(1.2)";
+            setTimeout(() => { centerCard.style.transform = "translateZ(20px) scale(1)"; }, 150);
+
+            if(selectedIndex >= hand.length) selectedIndex = Math.max(0, hand.length - 1);
+            renderHand();
+            
+            if(hand.length === 0) {
+                gameOver(hakariMode ? "ÖLÜMSÜZLÜK İLE<br>KAZANDIN! ZAAAA!" : "TEBRİKLER!<br>KAZANDIN!");
+                return;
+            }
+
+            // HAKARİ MODU: Sıra devredilmez, oyuncu vurmaya devam eder!
+            if(hakariMode) {
+                document.getElementById('turn-indicator').innerHTML = "SINIRSIZ HAMLE!<br>BÜTÜN KARTLARI AT!";
+                return; 
+            }
+
+            nextTurn();
+        }
+
+        function drawFromDeck() {
+            if(currentTurn !== 0 || deckCount <= 0) return;
+            hand.push("Yeni Kart");
+            deckCount--;
+            renderHand();
+            if(!hakariMode) nextTurn(); // Hakari ise sıra yine bizde kalır
+        }
+
+        function sayJackpot() {
+            jackpotSaid = true;
+            const btn = document.getElementById('uno-btn');
+            btn.classList.add('clicked');
+            btn.innerText = "SÖYLENDİ!";
+        }
+
+        /* =========================================
+           SIRA VE AI MANTIĞI
+           ========================================= */
+        function nextTurn() {
+            if(hakariMode) return; // Hakari açıksa bu fonksiyon asla çalışmaz!
+
+            currentTurn++; if(currentTurn > 3) currentTurn = 0;
+            updateTurnVisuals();
+
+            if(currentTurn !== 0) {
+                setTimeout(() => { playAICard(currentTurn); }, 1500);
+            }
+        }
+
+        function playAICard(aiId) {
+            if(hakariMode) return; // Garanti önlem
+
+            const colors = ['Krmz', 'Mavi', 'Yeşil', 'Sarı'];
+            let rc = colors[Math.floor(Math.random() * colors.length)];
+            let rn = Math.floor(Math.random() * 9) + 1;
+            document.getElementById('center-card').innerHTML = `${rc}<br>${rn}`;
+            
+            aiCardCounts[aiId - 1]--;
+            renderAiHands();
+            updateHUD();
+
+            if(aiCardCounts[aiId - 1] === 0) {
+                let aiName = aiId === 1 ? "SOL" : aiId === 2 ? "KARŞI" : "SAĞ";
+                gameOver(`${aiName} AI BİTİRDİ!<br>KAYBETTİN!`);
+                return;
+            }
+
+            nextTurn();
+        }
+
+        function updateTurnVisuals() {
+            const ind = document.getElementById('turn-indicator');
+            [1, 2, 3].forEach(id => document.getElementById(`avatar-${id}`).style.borderColor = '#45a29e');
+
+            if(currentTurn === 0) {
+                ind.innerHTML = "Sıra: SENDE<br>(W ile Oyna)"; ind.style.color = "#00ffcc";
+                document.getElementById('spinBtn').disabled = false;
+                renderHand();
+            } else {
+                let name = currentTurn === 1 ? "SOL" : currentTurn === 2 ? "KARŞI" : "SAĞ";
+                ind.innerText = `Sıra: ${name} AI`; ind.style.color = "#ff0055";
+                document.getElementById('spinBtn').disabled = true;
+                document.getElementById(`avatar-${currentTurn}`).style.borderColor = "#ff0055";
+                document.querySelectorAll('.player-hand .card').forEach(c => c.classList.remove('active'));
+            }
+        }
+
+        /* =========================================
+           SLOT MAKİNESİ VE DOMAIN EXPANSION AÇILIMI
+           ========================================= */
+        const symbols = ['🍉', '🍒', '🔔', '💎', '7'];
+        
+        function spinJackpot() {
+            if(isSpinning || currentTurn !== 0 || hakariMode) return; 
+            isSpinning = true;
+            let spins = 0;
+            let int = setInterval(() => {
+                document.getElementById('slot1').innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                document.getElementById('slot2').innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                document.getElementById('slot3').innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                spins++;
+                
+                if(spins > 20) {
+                    clearInterval(int); isSpinning = false;
+                    
+                    // TEST ETMEK İSTERSEN BU SATIRLARI AKTİF ET:
+                    // document.getElementById('slot1').innerText = '7';
+                    // document.getElementById('slot2').innerText = '7';
+                    // document.getElementById('slot3').innerText = '7';
+
+                    let s1 = document.getElementById('slot1').innerText;
+                    let s2 = document.getElementById('slot2').innerText;
+                    let s3 = document.getElementById('slot3').innerText;
+                    
+                    if(s1==='7' && s2==='7' && s3==='7') {
+                        triggerDomainExpansion();
+                    }
+                }
+            }, 50);
+        }
+
+        /* YENİ: EFSANEVİ HAKARİ MODUNU BAŞLATAN FONKSİYON */
+        function triggerDomainExpansion() {
+            hakariMode = true;
+            
+            // 1. Adım: Beyaz Flaş
+            const flash = document.getElementById('white-flash');
+            flash.style.opacity = '1';
+
+            setTimeout(() => {
+                // 2. Adım: Etrafın dönüşmesi ve Auraların belirmesi
+                document.body.classList.add('hakari-active');
+                document.getElementById('aura-left').style.opacity = '1';
+                document.getElementById('aura-right').style.opacity = '1';
+                
+                const banner = document.getElementById('hakari-banner');
+                banner.style.opacity = '1';
+                banner.style.top = '25%';
+
+                document.getElementById('turn-indicator').innerHTML = "DOMAİN AÇILDI!<br>SINIRSIZ HAMLE!";
+
+                // Flaşın yavaşça sönmesi
+                flash.style.opacity = '0';
+                
+                // Oyuncunun eline rastgele 2 yeni kart çekip kombo yapmasına olanak tanıyalım
+                hand.push('ÖLÜMSÜZ +4', 'HAKARİ TEKMESİ');
+                renderHand();
+                
+            }, 1000);
+        }
+
+        /* =========================================
+           OYUN BİTİŞİ
+           ========================================= */
+        function gameOver(message) {
+            clearInterval(timerInterval);
+            document.getElementById('end-message').innerHTML = message;
+            document.getElementById('end-screen').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
